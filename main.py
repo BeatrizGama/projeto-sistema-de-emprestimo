@@ -1,7 +1,8 @@
-from flask import Flask, render_template, request, redirect, url_for
-from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin
+from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin , current_user
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+
 
 #import json
 
@@ -26,24 +27,11 @@ class User(UserMixin, db.Model):
     password = db.Column(db.String(100))
     department = db.Column(db.String(1000))
 
+
 @login_manager.user_loader
 def load_user(user_id):
     # since the email is the primary key of our user table, use it in the query for the user
     return User.query.get(int(user_id))
-
-#def salvar_usuario(usuario):
-#    with open('usuarios.json', 'r+') as arquivo:
-#        data = json.load(arquivo)
-#        data.append(usuario)
-#        arquivo.seek(0)
-#        json.dump(data, arquivo)
-
-#def carregar_usuarios():
-#    try:
-#        with open('usuarios.json', 'r') as arquivo:
-#            return json.load(arquivo)
-#    except FileNotFoundError:
-#        return []
 
 @app.route("/") 
 def homepage():
@@ -71,10 +59,20 @@ def login():
 
     return render_template("login.html") 
 
+
 @app.route("/usuarios/<nome_usuario>")
 @login_required
 def usuarios(nome_usuario):
-    return render_template("usuarios.html", nome_usuario = nome_usuario) 
+    user = User.query.filter_by(email=nome_usuario).first_or_404()
+    # Equipamentos disponíveis (não alugados)
+    available_equipments = Equipment.query.filter_by(user_id=None).all()
+    print(available_equipments)
+    # Equipamentos reservados pelo usuário atual
+    reserved_equipments = Equipment.query.filter_by(user_id=user.id).all()
+    return render_template("usuarios.html", 
+                           nome_usuario=nome_usuario, 
+                           available_equipments=available_equipments,
+                        reserved_equipments=reserved_equipments)
 
 @app.route("/cadastro", methods=["GET", "POST"])
 def cadastro():
@@ -109,6 +107,52 @@ def cadastro():
 def logout():
     logout_user()
     return redirect(url_for('login'))
+
+#---------------------------------------------------------------------------------------------------------------
+
+# Definicao da tabela de equipamentos na base de dados 
+class Equipment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    description = db.Column(db.String(1000))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
+    user = db.relationship('User', backref=db.backref('equipments', lazy=True))
+
+
+@app.route("/add_equipment", methods=["GET", "POST"])
+#@login_required
+def add_equipment():
+    if request.method == "POST":
+        name = request.form["name"]
+        description = request.form["description"]
+
+        # Adicionar novo equipamento ao banco de dados
+        new_equipment = Equipment(name=name, description=description)
+        db.session.add(new_equipment)
+        db.session.commit()
+
+        return redirect(url_for('add_equipament'))
+
+
+    return render_template("add_equipment.html")
+
+
+
+@app.route('/reserve_equipment', methods=['POST'])
+@login_required
+def reserve_equipment():
+    data = request.get_json()
+    equipment_id = data.get('equipment_id')
+    equipment = Equipment.query.get(equipment_id)
+
+    if equipment and equipment.user_id is None:
+        equipment.user_id = current_user.id
+        db.session.commit()
+        return jsonify({'success': True})
+
+    return jsonify({'success': False, 'message': 'Equipamento não encontrado ou já reservado'})
+
+
 
 if __name__ == "__main__":
 

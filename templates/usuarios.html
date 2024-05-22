@@ -1,29 +1,30 @@
 <!DOCTYPE html>
 <html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Painel de Controle</title>
-    <style>body {
+    <style>
+      body {
         font-family: Arial, sans-serif;
         margin: 0;
         padding: 0;
         background-color: #f0f0f0;
-    }
-    
-    .header {
+      }
+
+      .header {
         background-color: #001f3f; /* Azul Marinho */
         color: #fff;
         padding: 20px;
         text-align: center;
-    }
-    
-    .tabs {
+      }
+
+      .tabs {
         overflow: hidden;
         border-bottom: 1px solid #ccc;
-    }
-    
-    .tablink {
+      }
+
+      .tablink {
         background-color: #001f3f; /* Azul Marinho */
         float: left;
         border: none;
@@ -31,138 +32,141 @@
         cursor: pointer;
         padding: 14px 16px;
         transition: background-color 0.3s, color 0.3s; /* Adicionando transição de cor */
-    }
-    
-    .tablink:hover {
+      }
+
+      .tablink:hover {
         background-color: #fff; /* Fundo branco ao passar o mouse */
         color: #001f3f; /* Texto em azul marinho ao passar o mouse */
-    }
-    
-    .tablink.active {
+      }
+
+      .tablink.active {
         background-color: #007bff; /* Azul padrão */
         color: #fff;
-    }
-    
-    .tabcontent {
+      }
+
+      .tabcontent {
         display: none;
         padding: 20px;
-    }
-    
-    table {
+      }
+
+      table {
         width: 100%;
         border-collapse: collapse;
         margin-top: 20px;
-    }
-    
-    th, td {
+      }
+
+      th,
+      td {
         padding: 8px;
         text-align: left;
         border-bottom: 1px solid #ddd;
-    }
-    
-    th {
+      }
+
+      th {
         background-color: #f2f2f2;
-    }
-    
-    button {
+      }
+
+      button {
         background-color: #007bff;
         color: white;
         border: none;
         padding: 8px 12px;
         cursor: pointer;
         transition: background-color 0.3s ease;
-    }
-    
-    button:hover {
+      }
+
+      button:hover {
         background-color: #0056b3;
-    }
+      }
     </style>
-</head>
-<body>
+  </head>
+  <body>
     <div class="header">
-        <h2>Bem-vindo,  {{ nome_usuario }}</h2>
+      <h2>Bem-vindo, {{ nome_usuario }}</h2>
     </div>
     <div class="tabs">
-        <button class="tablink" onclick="openTab('Pendencias')">Pendências</button>
-        <button class="tablink" onclick="openTab('Disponiveis')">Disponíveis</button>
-        <button class="tablink" onclick="openTab('Historico')">Histórico</button>
-        <button class="tablink" onclick="location.href='/logout'">Logout</button>
-    </div>
-    <div id="Pendencias" class="tabcontent">
-        <h3>Pendências</h3>
-        <table>
-            <tr>
-                <th>Tarefa</th>
-                <th>Status</th>
-            </tr>
-            <tr>
-                <td>Datashow</td>
-                <td>Pendente</td>
-            </tr>
-            <!-- Adicione mais linhas conforme necessário -->
-        </table>
+      <button class="tablink" onclick="openTab('Disponiveis')">
+        Disponíveis
+      </button>
+      <button class="tablink" onclick="openTab('Reservados')">
+        Reservados
+      </button>
+      <button class="tablink" onclick="location.href='/logout'">Logout</button>
     </div>
     <div id="Disponiveis" class="tabcontent">
-        <h3>Recursos Disponíveis</h3>
-        <table>
-            <tr>
-                <th>Objeto</th>
-                <th>Data</th>
-                <th>Horário</th>
-                <th>Reservar</th>
-            </tr>
-            <tr>
-                <td>Computador</td>
-                <td>2024-05-10</td>
-                <td>09:00 - 11:00</td>
-                <td><button onclick="reserveResource('Computador', '2024-05-10', '09:00 - 11:00')">Reservar</button></td>
-            </tr>
-            <!-- Adicione mais linhas conforme necessário -->
-        </table>
+      <h3>Recursos Disponíveis</h3>
+      <table>
+        <tr>
+          <th>Nome</th>
+          <th>Descrição</th>
+          <th>Reservar</th>
+        </tr>
+        {% for equipment in available_equipments %}
+        <tr>
+          <td>{{ equipment.name }}</td>
+          <td>{{ equipment.description }}</td>
+          <td>
+            <button onclick="reserveResource({{ equipment.id }})">
+              Reservar
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </table>
     </div>
-    <div id="Historico" class="tabcontent">
-        <h3>Histórico de Reservas</h3>
-        <table>
-            <tr>
-                <th>Objeto</th>
-                <th>Data</th>
-                <th>Horário</th>
-                <th>Status</th>
-            </tr>
-            <tr>
-                <td>Piloto</td>
-                <td>2024-05-05</td>
-                <td>14:00 - 16:00</td>
-                <td>Concluída</td>
-            </tr>
-            <tr>
-                <td>Datashow</td>
-                <td>2024-05-07</td>
-                <td>10:00 - 12:00</td>
-                <td>Concluída</td>
-            </tr>
-            <!-- Adicione mais linhas conforme necessário -->
-        </table>
+    <div id="Reservados" class="tabcontent">
+      <h3>Recursos Reservados</h3>
+      <table>
+        <tr>
+          <th>Nome</th>
+          <th>Descrição</th>
+        </tr>
+        {% for equipment in reserved_equipments %}
+        <tr>
+          <td>{{ equipment.name }}</td>
+          <td>{{ equipment.description }}</td>
+        </tr>
+        {% endfor %}
+      </table>
     </div>
     <script>
-        function openTab(tabName) {
-            var i, tabcontent, tablinks;
-            tabcontent = document.getElementsByClassName("tabcontent");
-            for (i = 0; i < tabcontent.length; i++) {
-                tabcontent[i].style.display = "none";
-            }
-            tablinks = document.getElementsByClassName("tablink");
-            for (i = 0; i < tablinks.length; i++) {
-                tablinks[i].className = tablinks[i].className.replace(" active", "");
-            }
-            document.getElementById(tabName).style.display = "block";
-            event.currentTarget.className += " active";
+      function openTab(tabName) {
+        var i, tabcontent, tablinks;
+        tabcontent = document.getElementsByClassName("tabcontent");
+        for (i = 0; i < tabcontent.length; i++) {
+          tabcontent[i].style.display = "none";
         }
+        tablinks = document.getElementsByClassName("tablink");
+        for (i = 0; i < tablinks.length; i++) {
+          tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+        document.getElementById(tabName).style.display = "block";
+        event.currentTarget.className += " active";
+      }
 
-        function reserveResource(objeto, data, horario) {
-            // Aqui você pode implementar a lógica para fazer a reserva
-            alert('Reserva feita do ' + objeto + ' em ' + data + ', horário: ' + horario);
-        }
+      function reserveResource(equipmentId) {
+        fetch("/reserve_equipment", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ equipment_id: equipmentId }),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.success) {
+              alert("Reserva feita com sucesso!");
+              location.reload();
+            } else {
+              alert("Falha na reserva: " + data.message);
+            }
+          });
+      }
+
+      // Open the first tab by default
+      document.addEventListener("DOMContentLoaded", function () {
+        document.querySelector(".tablink").click();
+      });
     </script>
-</body>
+  </body>
 </html>
