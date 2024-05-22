@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin , current_user
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime
 
 
 #import json
@@ -65,14 +66,12 @@ def login():
 def usuarios(nome_usuario):
     user = User.query.filter_by(email=nome_usuario).first_or_404()
     # Equipamentos disponíveis (não alugados)
-    available_equipments = Equipment.query.filter_by(user_id=None).all()
-    print(available_equipments)
+    available_equipments = Equipment.query.all()
+    #print(available_equipments)
     # Equipamentos reservados pelo usuário atual
-    reserved_equipments = Equipment.query.filter_by(user_id=user.id).all()
+    #reserved_equipments = Equipment.query.filter_by(user_id=user.id).all()
     return render_template("usuarios.html", 
-                           nome_usuario=nome_usuario, 
-                           available_equipments=available_equipments,
-                        reserved_equipments=reserved_equipments)
+                           nome_usuario=nome_usuario,available_equipments =available_equipments )
 
 @app.route("/cadastro", methods=["GET", "POST"])
 def cadastro():
@@ -115,8 +114,15 @@ class Equipment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.String(1000))
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)
-    user = db.relationship('User', backref=db.backref('equipments', lazy=True))
+
+class Agendamento(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    data = db.Column(db.String(10), nullable=False)  # Exemplo de formato: "2024-05-22"
+    horario = db.Column(db.String(5), nullable=False)  # Exemplo de formato: "15:30"
+    equipment_id = db.Column(db.Integer, db.ForeignKey('equipment.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    equipment = db.relationship('Equipment', backref=db.backref('agendamentos', lazy=True))
+    user = db.relationship('User', backref=db.backref('agendamentos', lazy=True))
 
 
 @app.route("/add_equipment", methods=["GET", "POST"])
@@ -137,6 +143,35 @@ def add_equipment():
     return render_template("add_equipment.html")
 
 
+
+@app.route("/add_agendamento", methods=["GET", "POST"])
+def add_agendamento():
+    if request.method == "POST":
+        data = request.form["data"]
+        horario = request.form["horario"]
+        equipment_id = request.form["equipment_id"]
+        user_id = current_user.id  # Supondo que o usuário atual está logado
+
+        # Combine a data e o horário em um formato de data e hora completo
+        data_hora_str = f"{data} {horario}"
+        data_hora = datetime.strptime(data_hora_str, "%Y-%m-%d %H:%M")
+
+        # Adicionar novo agendamento ao banco de dados
+        new_agendamento = Agendamento(
+            data=data_hora.strftime("%Y-%m-%d"),  # Armazena apenas a data
+            horario=data_hora.strftime("%H:%M"),  # Armazena apenas o horário
+            equipment_id=equipment_id,
+            user_id=user_id
+        )
+        db.session.add(new_agendamento)
+        db.session.commit()
+
+        return redirect(url_for('homepage'))
+
+    # Obtém todos os equipamentos disponíveis para exibir no formulário
+    available_equipments = Equipment.query.all()
+
+    return render_template("add_agendamento.html", available_equipments =available_equipments)
 
 @app.route('/reserve_equipment', methods=['POST'])
 @login_required
