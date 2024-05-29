@@ -4,7 +4,6 @@ from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 
-
 #import json
 
 # Criação do app em flask
@@ -112,54 +111,62 @@ def logout():
 # Definicao da tabela de equipamentos na base de dados 
 class Equipment(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    name = db.Column(db.String(100), nullable=False)
+    tipo = db.Column(db.String(100), nullable=False) #datashow/pc/piloto
+    modelo =  db.Column(db.String(100)) # e20 2.0
+    marca =  db.Column(db.String(100)) # epson / dell 
     description = db.Column(db.String(1000))
 
 class Agendamento(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     data = db.Column(db.String(10), nullable=False)  # Exemplo de formato: "2024-05-22"
-    horario = db.Column(db.String(5), nullable=False)  # Exemplo de formato: "15:30"
+    horario_inicio = db.Column(db.String(5), nullable=False)  # Exemplo de formato: "15:30"
+    horario_fim = db.Column(db.String(5), nullable=False)  # Exemplo de formato: "15:30"
     equipment_id = db.Column(db.Integer, db.ForeignKey('equipment.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     equipment = db.relationship('Equipment', backref=db.backref('agendamentos', lazy=True))
     user = db.relationship('User', backref=db.backref('agendamentos', lazy=True))
 
-
 @app.route("/add_equipment", methods=["GET", "POST"])
 #@login_required
 def add_equipment():
     if request.method == "POST":
-        name = request.form["name"]
+        tipo = request.form["name"]
+        #modelo = request.form["modelo"]
+        #marca = request.form["marca"]
         description = request.form["description"]
 
-        # Adicionar novo equipamento ao banco de dados
-        new_equipment = Equipment(name=name, description=description)
+        # Adicionar novo equipamento ao banco de dado
+        
+        new_equipment = Equipment( tipo=tipo , description=description)
         db.session.add(new_equipment)
         db.session.commit()
 
-        return redirect(url_for('add_equipament'))
+        return redirect(url_for('add_equipment'))
 
 
     return render_template("add_equipment.html")
 
 
-
 @app.route("/add_agendamento", methods=["GET", "POST"])
+@login_required
 def add_agendamento():
     if request.method == "POST":
-        data = request.form["data"]
-        horario = request.form["horario"]
+        data_inicio = request.form["data_inicio"]
+        data_fim = request.form["data_fim"]
         equipment_id = request.form["equipment_id"]
         user_id = current_user.id  # Supondo que o usuário atual está logado
 
-        # Combine a data e o horário em um formato de data e hora completo
-        data_hora_str = f"{data} {horario}"
-        data_hora = datetime.strptime(data_hora_str, "%Y-%m-%d %H:%M")
+        data_hora_inicio = datetime.strptime(data_inicio, "%Y-%m-%dT%H:%M")
+        data_hora_fim = datetime.strptime(data_fim, "%Y-%m-%dT%H:%M")
+
+        # Verificar se a data de fim é depois da data de início
+        if data_hora_fim <= data_hora_inicio:
+            return "Erro: A data de fim deve ser após a data de início.", 400
 
         # Adicionar novo agendamento ao banco de dados
         new_agendamento = Agendamento(
-            data=data_hora.strftime("%Y-%m-%d"),  # Armazena apenas a data
-            horario=data_hora.strftime("%H:%M"),  # Armazena apenas o horário
+            data_hora_inicio=data_hora_inicio,
+            data_hora_fim=data_hora_fim,
             equipment_id=equipment_id,
             user_id=user_id
         )
@@ -169,9 +176,9 @@ def add_agendamento():
         return redirect(url_for('homepage'))
 
     # Obtém todos os equipamentos disponíveis para exibir no formulário
-    available_equipments = Equipment.query.all()
+    available_equipments = db.session.query(Equipment.tipo).distinct().all()
 
-    return render_template("add_agendamento.html", available_equipments =available_equipments)
+    return render_template("add_agendamento.html", available_equipments=available_equipments)
 
 @app.route('/reserve_equipment', methods=['POST'])
 @login_required
@@ -193,6 +200,5 @@ if __name__ == "__main__":
 
     # Inicializar/atualizar base de dados antes de iniciar a aplicacao
     db.create_all()
-
     # Inicia a aplicacao
     app.run(debug=True)

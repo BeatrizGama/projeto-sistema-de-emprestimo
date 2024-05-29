@@ -94,25 +94,27 @@
       <button class="tablink" onclick="location.href='/logout'">Logout</button>
     </div>
     <div id="Disponiveis" class="tabcontent">
-      <h3>Recursos Disponíveis</h3>
-      <table>
+      <h3>LISTA DE EQUIPAMENTOS</h3>
+      <!---
+        <table>
         <tr>
           <th>Nome</th>
           <th>Descrição</th>
           <th>Reservar</th>
         </tr>
+       
         {% for equipment in available_equipments %}
         <tr>
-          <td>{{ equipment.name }}</td>
+          <td>{{ equipment.tipo }}</td>
           <td>{{ equipment.description }}</td>
           <td>
-            <button onclick="reserveResource({{ equipment.id }})">
-              Reservar
-            </button>
+            <button onclick="location.href='/add_agendamento'">Reservar</button>
           </td>
         </tr>
         {% endfor %}
       </table>
+        -->
+      <button onclick="location.href='/add_agendamento'">Reservar</button>
     </div>
     <div id="Reservados" class="tabcontent">
       <h3>Recursos Reservados</h3>
