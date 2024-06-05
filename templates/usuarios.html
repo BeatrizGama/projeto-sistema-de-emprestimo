@@ -11,61 +11,51 @@
         padding: 0;
         background-color: #f0f0f0;
       }
-
       .header {
-        background-color: #001f3f; /* Azul Marinho */
+        background-color: #001f3f;
         color: #fff;
         padding: 20px;
         text-align: center;
       }
-
       .tabs {
         overflow: hidden;
         border-bottom: 1px solid #ccc;
       }
-
       .tablink {
-        background-color: #001f3f; /* Azul Marinho */
+        background-color: #001f3f;
         float: left;
         border: none;
         outline: none;
         cursor: pointer;
         padding: 14px 16px;
-        transition: background-color 0.3s, color 0.3s; /* Adicionando transição de cor */
+        transition: background-color 0.3s, color 0.3s;
       }
-
       .tablink:hover {
-        background-color: #fff; /* Fundo branco ao passar o mouse */
-        color: #001f3f; /* Texto em azul marinho ao passar o mouse */
+        background-color: #fff;
+        color: #001f3f;
       }
-
       .tablink.active {
-        background-color: #007bff; /* Azul padrão */
+        background-color: #007bff;
         color: #fff;
       }
-
       .tabcontent {
         display: none;
         padding: 20px;
       }
-
       table {
         width: 100%;
         border-collapse: collapse;
         margin-top: 20px;
       }
-
       th,
       td {
         padding: 8px;
         text-align: left;
         border-bottom: 1px solid #ddd;
       }
-
       th {
         background-color: #f2f2f2;
       }
-
       button {
         background-color: #007bff;
         color: white;
@@ -74,9 +64,14 @@
         cursor: pointer;
         transition: background-color 0.3s ease;
       }
-
       button:hover {
         background-color: #0056b3;
+      }
+      .cancel-button {
+        background-color: #ff4d4d;
+      }
+      .cancel-button:hover {
+        background-color: #cc0000;
       }
     </style>
   </head>
@@ -95,15 +90,13 @@
     </div>
     <div id="Disponiveis" class="tabcontent">
       <h3>LISTA DE EQUIPAMENTOS</h3>
-      <!---
-        <table>
+      <table>
         <tr>
           <th>Nome</th>
           <th>Descrição</th>
           <th>Reservar</th>
         </tr>
-       
-        {% for equipment in available_equipments %}
+        {% for equipment in available_equipamentos %}
         <tr>
           <td>{{ equipment.tipo }}</td>
           <td>{{ equipment.description }}</td>
@@ -113,8 +106,6 @@
         </tr>
         {% endfor %}
       </table>
-        -->
-      <button onclick="location.href='/add_agendamento'">Reservar</button>
     </div>
     <div id="Reservados" class="tabcontent">
       <h3>Recursos Reservados</h3>
@@ -122,11 +113,27 @@
         <tr>
           <th>Nome</th>
           <th>Descrição</th>
+          <th>Data Início</th>
+          <th>Horário Início</th>
+          <th>Horário Fim</th>
+          <th>Ações</th>
         </tr>
-        {% for equipment in reserved_equipments %}
+        {% for agendamento in reserved_equipamentos %}
         <tr>
-          <td>{{ equipment.name }}</td>
-          <td>{{ equipment.description }}</td>
+          <td>{{ agendamento.equipamento.tipo }}</td>
+          <td>{{ agendamento.equipamento.description }}</td>
+          <td>{{ agendamento.data }}</td>
+          <td>{{ agendamento.horario_inicio }}</td>
+          <td>{{ agendamento.horario_fim }}</td>
+          <td>
+            <form
+              action="{{ url_for('cancelar_reserva', agendamento_id=agendamento.id) }}"
+              method="post"
+              style="display: inline"
+            >
+              <button type="submit" class="cancel-button">Cancelar</button>
+            </form>
+          </td>
         </tr>
         {% endfor %}
       </table>
@@ -145,27 +152,6 @@
         document.getElementById(tabName).style.display = "block";
         event.currentTarget.className += " active";
       }
-
-      function reserveResource(equipmentId) {
-        fetch("/reserve_equipment", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ equipment_id: equipmentId }),
-        })
-          .then((response) => response.json())
-          .then((data) => {
-            if (data.success) {
-              alert("Reserva feita com sucesso!");
-              location.reload();
-            } else {
-              alert("Falha na reserva: " + data.message);
-            }
-          });
-      }
-
-      // Open the first tab by default
       document.addEventListener("DOMContentLoaded", function () {
         document.querySelector(".tablink").click();
       });
