@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, jsonify
+from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
 from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin , current_user
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -50,7 +50,10 @@ def login():
 
         # verifica se usuario existe
         # pega a senha fornecida, calcula o hash e compara com o hash guardado no banco de dados
+
+        # PRECISA INFORMAR ERRO !!!!!!!!!!!!!!
         if not user or not check_password_hash(user.password, password):
+            flash("Usuário ou senha incorretos!", "error")  # Mensagem de erro flash
             return redirect(url_for('login')) # if user doesn't exist or password is wrong, reload the page
 
         # se chegou aqui, o usuário é valido
@@ -65,7 +68,7 @@ def login():
 def usuarios(nome_usuario):
     user = User.query.filter_by(email=nome_usuario).first_or_404()
     # Equipamentos disponíveis (não alugados)
-    available_equipamentos = Equipamento.query.all()
+    available_equipamentos = db.session.query(Equipamento.tipo).distinct().all()
     # Equipamentos reservados pelo usuário atual
     reserved_equipamentos = Agendamento.query.filter_by(user_id=user.id).all()
     return render_template("usuarios.html", 
@@ -130,7 +133,7 @@ class Agendamento(db.Model):
 
 @app.route("/add_equipamento", methods=["GET", "POST"])
 #@login_required
-def add_equipament0():
+def add_equipamento():
     if request.method == "POST":
         tipo = request.form["name"]
         #modelo = request.form["modelo"]
@@ -145,7 +148,6 @@ def add_equipament0():
 
         return redirect(url_for('add_equipamento'))
 
-
     return render_template("add_equipamento.html")
 
 
@@ -156,31 +158,51 @@ def add_agendamento():
         data = request.form["data"]
         horario_inicio = request.form["horario_inicio"]
         horario_fim = request.form["horario_fim"]
-        equipamento_id = request.form["equipamento_id"]
+        equipamento_tipo = request.form["equipamento_tipo"]
         user_id = current_user.id  # ID do usuário atual logado
 
         data_hora_inicio = datetime.strptime(f"{data}T{horario_inicio}", "%Y-%m-%dT%H:%M")
         data_hora_fim = datetime.strptime(f"{data}T{horario_fim}", "%Y-%m-%dT%H:%M")
-
+             
         # Verificar se a data de fim é depois da data de início
         if data_hora_fim <= data_hora_inicio:
-            return "Erro: A data de fim deve ser após a data de início.", 400
+            flash("Erro: O horário de término deve ser posterior ao horário de início.", "error")
+            return redirect(url_for('add_agendamento'))
+        
+        # Verificar disponibilidade de qualquer equipamento do mesmo tipo
+        equipamento_disponivel = None
+        equipamentos_do_tipo = Equipamento.query.filter_by(tipo=equipamento_tipo).all()
+        for equipamento in equipamentos_do_tipo:
+            conflito_agendamento = Agendamento.query.filter(
+                Agendamento.equipamento_id == equipamento.id,
+                Agendamento.data == data,
+                Agendamento.horario_inicio < horario_fim,
+                Agendamento.horario_fim > horario_inicio
+            ).first()
+            if not conflito_agendamento:
+                equipamento_disponivel = equipamento
+                break
 
-        # Adicionar novo agendamento ao banco de dados
-        new_agendamento = Agendamento(
-            data=data_hora_inicio.date().isoformat(),
-            horario_inicio=data_hora_inicio.time().isoformat(),
-            horario_fim=data_hora_fim.time().isoformat(),
-            equipamento_id=equipamento_id,
-            user_id=user_id
-        )
-        db.session.add(new_agendamento)
-        db.session.commit()
 
-        return redirect(url_for('usuarios', nome_usuario=current_user.email))
+        if conflito_agendamento:
+            flash("Conflito de agendamento: já existe um agendamento para este horário.", "error")
+        else:
+            # Adicionar novo agendamento ao banco de dados
+            new_agendamento = Agendamento(
+                data=data_hora_inicio.date().isoformat(),
+                horario_inicio=data_hora_inicio.time().isoformat(),
+                horario_fim=data_hora_fim.time().isoformat(),
+                equipamento_id= equipamento_disponivel.id,
+                user_id=user_id
+            )
+            db.session.add(new_agendamento)
+            db.session.commit()
+
+            return redirect(url_for('usuarios', nome_usuario=current_user.email))
+
 
     # Obtém todos os equipamentos disponíveis para exibir no formulário
-    available_equipamentos = Equipamento.query.all()
+    available_equipamentos = db.session.query(Equipamento.tipo).distinct().all()
 
     return render_template("add_agendamento.html", available_equipamentos=available_equipamentos)
 

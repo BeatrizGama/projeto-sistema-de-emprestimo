@@ -61,7 +61,15 @@
   <body>
     <div class="container">
       <h2>Bem-Vindo!</h2>
+
       <h5>Não tem conta? <a href="/cadastro">Cadastre-se</a></h5>
+
+      {% with messages = get_flashed_messages(with_categories=true) %} {% if
+      messages %} {% for category, message in messages %} {% if category ==
+      'error' %}
+      <h5 style="color: red">{{ message }}</h5>
+      {% endif %} {% endfor %} {% endif %} {% endwith %}
+
       <form action="/login" method="post">
         <label for="email">Usuário*:</label>
         <input type="email" id="email" name="email" required />
