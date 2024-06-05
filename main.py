@@ -2,7 +2,7 @@ from flask import Flask, render_template, request, redirect, url_for, jsonify
 from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin , current_user
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timedelta
 
 #import json
 
@@ -65,12 +65,14 @@ def login():
 def usuarios(nome_usuario):
     user = User.query.filter_by(email=nome_usuario).first_or_404()
     # Equipamentos disponíveis (não alugados)
-    available_equipments = Equipment.query.all()
-    #print(available_equipments)
+    available_equipamentos = Equipamento.query.all()
     # Equipamentos reservados pelo usuário atual
-    #reserved_equipments = Equipment.query.filter_by(user_id=user.id).all()
+    reserved_equipamentos = Agendamento.query.filter_by(user_id=user.id).all()
     return render_template("usuarios.html", 
-                           nome_usuario=nome_usuario,available_equipments =available_equipments )
+                           nome_usuario=nome_usuario, 
+                           available_equipamentos=available_equipamentos,
+                           reserved_equipamentos=reserved_equipamentos)
+
 
 @app.route("/cadastro", methods=["GET", "POST"])
 def cadastro():
@@ -109,7 +111,7 @@ def logout():
 #---------------------------------------------------------------------------------------------------------------
 
 # Definicao da tabela de equipamentos na base de dados 
-class Equipment(db.Model):
+class Equipamento(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     tipo = db.Column(db.String(100), nullable=False) #datashow/pc/piloto
     modelo =  db.Column(db.String(100)) # e20 2.0
@@ -121,14 +123,14 @@ class Agendamento(db.Model):
     data = db.Column(db.String(10), nullable=False)  # Exemplo de formato: "2024-05-22"
     horario_inicio = db.Column(db.String(5), nullable=False)  # Exemplo de formato: "15:30"
     horario_fim = db.Column(db.String(5), nullable=False)  # Exemplo de formato: "15:30"
-    equipment_id = db.Column(db.Integer, db.ForeignKey('equipment.id'), nullable=False)
+    equipamento_id = db.Column(db.Integer, db.ForeignKey('equipamento.id'), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    equipment = db.relationship('Equipment', backref=db.backref('agendamentos', lazy=True))
+    equipamento = db.relationship('Equipamento', backref=db.backref('agendamentos', lazy=True))
     user = db.relationship('User', backref=db.backref('agendamentos', lazy=True))
 
-@app.route("/add_equipment", methods=["GET", "POST"])
+@app.route("/add_equipamento", methods=["GET", "POST"])
 #@login_required
-def add_equipment():
+def add_equipament0():
     if request.method == "POST":
         tipo = request.form["name"]
         #modelo = request.form["modelo"]
@@ -137,27 +139,28 @@ def add_equipment():
 
         # Adicionar novo equipamento ao banco de dado
         
-        new_equipment = Equipment( tipo=tipo , description=description)
-        db.session.add(new_equipment)
+        new_equipamento = Equipamento( tipo=tipo , description=description)
+        db.session.add(new_equipamento)
         db.session.commit()
 
-        return redirect(url_for('add_equipment'))
+        return redirect(url_for('add_equipamento'))
 
 
-    return render_template("add_equipment.html")
+    return render_template("add_equipamento.html")
 
 
 @app.route("/add_agendamento", methods=["GET", "POST"])
 @login_required
 def add_agendamento():
     if request.method == "POST":
-        data_inicio = request.form["data_inicio"]
-        data_fim = request.form["data_fim"]
-        equipment_id = request.form["equipment_id"]
-        user_id = current_user.id  # Supondo que o usuário atual está logado
+        data = request.form["data"]
+        horario_inicio = request.form["horario_inicio"]
+        horario_fim = request.form["horario_fim"]
+        equipamento_id = request.form["equipamento_id"]
+        user_id = current_user.id  # ID do usuário atual logado
 
-        data_hora_inicio = datetime.strptime(data_inicio, "%Y-%m-%dT%H:%M")
-        data_hora_fim = datetime.strptime(data_fim, "%Y-%m-%dT%H:%M")
+        data_hora_inicio = datetime.strptime(f"{data}T{horario_inicio}", "%Y-%m-%dT%H:%M")
+        data_hora_fim = datetime.strptime(f"{data}T{horario_fim}", "%Y-%m-%dT%H:%M")
 
         # Verificar se a data de fim é depois da data de início
         if data_hora_fim <= data_hora_inicio:
@@ -165,34 +168,52 @@ def add_agendamento():
 
         # Adicionar novo agendamento ao banco de dados
         new_agendamento = Agendamento(
-            data_hora_inicio=data_hora_inicio,
-            data_hora_fim=data_hora_fim,
-            equipment_id=equipment_id,
+            data=data_hora_inicio.date().isoformat(),
+            horario_inicio=data_hora_inicio.time().isoformat(),
+            horario_fim=data_hora_fim.time().isoformat(),
+            equipamento_id=equipamento_id,
             user_id=user_id
         )
         db.session.add(new_agendamento)
         db.session.commit()
 
-        return redirect(url_for('homepage'))
+        return redirect(url_for('usuarios', nome_usuario=current_user.email))
 
     # Obtém todos os equipamentos disponíveis para exibir no formulário
-    available_equipments = db.session.query(Equipment.tipo).distinct().all()
+    available_equipamentos = Equipamento.query.all()
 
-    return render_template("add_agendamento.html", available_equipments=available_equipments)
+    return render_template("add_agendamento.html", available_equipamentos=available_equipamentos)
 
-@app.route('/reserve_equipment', methods=['POST'])
+
+
+@app.route('/reserve_equipamento', methods=['POST'])
 @login_required
-def reserve_equipment():
+def reserve_equipamento():
     data = request.get_json()
-    equipment_id = data.get('equipment_id')
-    equipment = Equipment.query.get(equipment_id)
+    equipamento_id = data.get('equipamento_id')
+    equipamento = Equipamento.query.get(equipamento_id)
 
-    if equipment and equipment.user_id is None:
-        equipment.user_id = current_user.id
+    if equipamento and equipamento.user_id is None:
+        equipamento.user_id = current_user.id
         db.session.commit()
         return jsonify({'success': True})
 
     return jsonify({'success': False, 'message': 'Equipamento não encontrado ou já reservado'})
+
+@app.route("/cancelar_reserva/<int:agendamento_id>", methods=["POST"])
+@login_required
+def cancelar_reserva(agendamento_id):
+    agendamento = Agendamento.query.get_or_404(agendamento_id)
+    
+    # Verifica se o usuário logado é o dono da reserva
+    if agendamento.user_id != current_user.id:
+        return "Você não tem permissão para cancelar esta reserva.", 403
+    
+    db.session.delete(agendamento)
+    db.session.commit()
+    
+    return redirect(url_for('usuarios', nome_usuario=current_user.email))
+
 
 
 
