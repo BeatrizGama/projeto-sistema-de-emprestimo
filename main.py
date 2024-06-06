@@ -67,14 +67,34 @@ def login():
 @login_required
 def usuarios(nome_usuario):
     user = User.query.filter_by(email=nome_usuario).first_or_404()
+
     # Equipamentos disponíveis (não alugados)
     available_equipamentos = db.session.query(Equipamento.tipo).distinct().all()
-    # Equipamentos reservados pelo usuário atual
-    reserved_equipamentos = Agendamento.query.filter_by(user_id=user.id).all()
+    
+    # Equipamentos reservados pelo usuário atual (futuro)
+    today_date = datetime.today().date().isoformat()
+    reserved_equipamentos = Agendamento.query.filter(
+        Agendamento.user_id == user.id,
+        Agendamento.devolucao == False,
+        Agendamento.data >= today_date
+    ).all()
+    
+    # Equipamentos utilizados e não devolvidos (pendentes)
+    pending_equipamentos = Agendamento.query.filter(
+        Agendamento.user_id == user.id,
+        Agendamento.devolucao == False,
+        Agendamento.data < today_date
+    ).all()
+    
+    # Equipamentos já utilizados e devolvidos (histórico)
+    returned_equipamentos = Agendamento.query.filter_by(user_id=user.id, devolucao=True).all()
+    
     return render_template("usuarios.html", 
                            nome_usuario=nome_usuario, 
                            available_equipamentos=available_equipamentos,
-                           reserved_equipamentos=reserved_equipamentos)
+                           reserved_equipamentos=reserved_equipamentos,
+                           pending_equipamentos=pending_equipamentos,
+                           returned_equipamentos=returned_equipamentos)
 
 
 @app.route("/cadastro", methods=["GET", "POST"])
@@ -127,6 +147,7 @@ class Agendamento(db.Model):
     horario_inicio = db.Column(db.String(5), nullable=False)  # Exemplo de formato: "15:30"
     horario_fim = db.Column(db.String(5), nullable=False)  # Exemplo de formato: "15:30"
     equipamento_id = db.Column(db.Integer, db.ForeignKey('equipamento.id'), nullable=False)
+    devolucao = db.Column(db.Boolean, nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     equipamento = db.relationship('Equipamento', backref=db.backref('agendamentos', lazy=True))
     user = db.relationship('User', backref=db.backref('agendamentos', lazy=True))
@@ -159,7 +180,7 @@ def add_agendamento():
         horario_inicio = request.form["horario_inicio"]
         horario_fim = request.form["horario_fim"]
         equipamento_tipo = request.form["equipamento_tipo"]
-        user_id = current_user.id  # ID do usuário atual logado
+        user_id = current_user.id  # ID do usuário atual logado 
 
         data_hora_inicio = datetime.strptime(f"{data}T{horario_inicio}", "%Y-%m-%dT%H:%M")
         data_hora_fim = datetime.strptime(f"{data}T{horario_fim}", "%Y-%m-%dT%H:%M")
@@ -193,6 +214,7 @@ def add_agendamento():
                 horario_inicio=data_hora_inicio.time().isoformat(),
                 horario_fim=data_hora_fim.time().isoformat(),
                 equipamento_id= equipamento_disponivel.id,
+                devolucao = False,
                 user_id=user_id
             )
             db.session.add(new_agendamento)
@@ -207,7 +229,7 @@ def add_agendamento():
     return render_template("add_agendamento.html", available_equipamentos=available_equipamentos)
 
 
-
+'''
 @app.route('/reserve_equipamento', methods=['POST'])
 @login_required
 def reserve_equipamento():
@@ -221,6 +243,8 @@ def reserve_equipamento():
         return jsonify({'success': True})
 
     return jsonify({'success': False, 'message': 'Equipamento não encontrado ou já reservado'})
+
+'''
 
 @app.route("/cancelar_reserva/<int:agendamento_id>", methods=["POST"])
 @login_required
@@ -236,8 +260,37 @@ def cancelar_reserva(agendamento_id):
     
     return redirect(url_for('usuarios', nome_usuario=current_user.email))
 
+@app.route("/devolucao")
+def devolucao():
+        
+    # Equipamentos reservados (futuro)
+    today_date = datetime.today().date().isoformat()
+    reserved_equipamentos = db.session.query(Agendamento, User, Equipamento).join(User).join(Equipamento).filter(
+        Agendamento.devolucao == False,
+        Agendamento.data >= today_date
+    ).all()
+    
+    # Equipamentos utilizados e não devolvidos (pendentes)
+    pending_equipamentos = db.session.query(Agendamento, User, Equipamento).join(User).join(Equipamento).filter(
+        Agendamento.devolucao == False,
+        Agendamento.data < today_date
+    ).all()
+    # Equipamentos já utilizados e devolvidos (histórico)
+    returned_equipamentos = Agendamento.query.filter_by( devolucao=True).all()
 
+    
 
+    return render_template("devolucao.html",
+                           reserved_equipamentos=reserved_equipamentos,
+                           pending_equipamentos=pending_equipamentos
+                           )
+
+@app.route("/devolucao/<int:agendamento_id>", methods=["POST"])
+def devolucao_post(agendamento_id):
+    agendamento = Agendamento.query.get_or_404(agendamento_id)
+    agendamento.devolucao = True  
+    db.session.commit()
+    return redirect(url_for('devolucao'))
 
 if __name__ == "__main__":
 
