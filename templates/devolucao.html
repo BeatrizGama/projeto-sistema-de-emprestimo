@@ -6,10 +6,49 @@
     <title>Painel de Controle</title>
     <style>
       body {
-        font-family: Arial, sans-serif;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
         margin: 0;
         padding: 0;
-        background-color: #f0f0f0;
+        background-color: #e0e7ff;
+        color: #333;
+      }
+      .header {
+        background-color: #001f3f;
+        color: #fff;
+        padding: 20px;
+        text-align: center;
+      }
+      .tabs {
+        display: flex;
+        justify-content: center;
+        background-color: #001f3f;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+      .tablink {
+        background-color: #001f3f;
+        border: none;
+        outline: none;
+        cursor: pointer;
+        padding: 14px 20px;
+        color: #fff;
+        transition: background-color 0.3s, color 0.3s;
+        flex: 1;
+        text-align: center;
+      }
+      .tablink:hover {
+        background-color: #007bff;
+      }
+      .tablink.active {
+        background-color: #007bff;
+        color: #fff;
+      }
+      .tabcontent {
+        display: none;
+        padding: 20px;
+        background-color: #ffffff;
+        border-radius: 8px;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+        margin: 20px;
       }
       table {
         width: 100%;
@@ -18,20 +57,22 @@
       }
       th,
       td {
-        padding: 8px;
+        padding: 12px;
         text-align: left;
         border-bottom: 1px solid #ddd;
       }
       th {
-        background-color: #f2f2f2;
+        background-color: #007bff;
+        color: #fff;
       }
       button {
         background-color: #007bff;
         color: white;
         border: none;
-        padding: 8px 12px;
+        padding: 10px 15px;
         cursor: pointer;
         transition: background-color 0.3s ease;
+        border-radius: 4px;
       }
       button:hover {
         background-color: #0056b3;
@@ -45,11 +86,20 @@
     </style>
   </head>
   <body>
-    <div>
+    <div class="header">
+      <h2>Painel de Controle</h2>
+    </div>
+    <div class="tabs">
+      <button class="tablink" onclick="openTab('Pendentes')">Pendentes</button>
+      <button class="tablink" onclick="openTab('ReservasFuturas')">
+        Reservas Futuras
+      </button>
+    </div>
+    <div id="Pendentes" class="tabcontent">
       <h3>Equipamentos Pendentes</h3>
       <table>
         <tr>
-          <th>Email</th>
+          <th>Usuário</th>
           <th>Tipo</th>
           <th>Descrição</th>
           <th>Devolução</th>
@@ -71,8 +121,7 @@
         {% endfor %}
       </table>
     </div>
-
-    <div>
+    <div id="ReservasFuturas" class="tabcontent">
       <h3>Reservas Futuras</h3>
       <table>
         <tr>
@@ -89,5 +138,23 @@
         {% endfor %}
       </table>
     </div>
+    <script>
+      function openTab(tabName) {
+        var i, tabcontent, tablinks;
+        tabcontent = document.getElementsByClassName("tabcontent");
+        for (i = 0; i < tabcontent.length; i++) {
+          tabcontent[i].style.display = "none";
+        }
+        tablinks = document.getElementsByClassName("tablink");
+        for (i = 0; i < tablinks.length; i++) {
+          tablinks[i].className = tablinks[i].className.replace(" active", "");
+        }
+        document.getElementById(tabName).style.display = "block";
+        event.currentTarget.className += " active";
+      }
+      document.addEventListener("DOMContentLoaded", function () {
+        document.querySelector(".tablink").click();
+      });
+    </script>
   </body>
 </html>
