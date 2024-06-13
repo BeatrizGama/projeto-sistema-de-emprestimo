@@ -88,9 +88,9 @@
       messages %} {% for category, message in messages %} {% if category ==
       'error' %}
       <h5 style="color: red" class="error-message">{{ message }}</h5>
-      {%elif category == 'error_permissao' %}
+      {% elif category == 'error_permissao' %}
       <script>
-        alert({{message}})
+        alert("{{ message }}");
       </script>
       {% endif %} {% endfor %} {% endif %} {% endwith %}
 
@@ -111,7 +111,9 @@
           {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
               {% for category, message in messages %}
-                alert("{{ message }}");
+                {% if category in ['error', 'error_permissao'] %}
+                  alert("{{ message }}");
+                {% endif %}
               {% endfor %}
             {% endif %}
           {% endwith %}

@@ -40,7 +40,7 @@ def load_user(user_id):
 
 @app.route("/") 
 def homepage():
-    return render_template("homepage.html") 
+    return redirect(url_for("login"))
 
 @app.route("/login", methods=["GET", "POST"]) # Agora aceita tanto GET quanto POST
 def login():
@@ -76,7 +76,7 @@ def login():
 @login_required
 def usuarios(email):
     user = User.query.filter_by(email=email).first_or_404()
-
+    nome = user.nome
     # Equipamentos disponíveis (não alugados)
     available_equipamentos = db.session.query(Equipamento.tipo).distinct().all()
     
@@ -94,7 +94,7 @@ def usuarios(email):
         Agendamento.devolucao == False,
         Agendamento.data < today_date
     ).all()
-    nome = user.nome
+    
     # Equipamentos já utilizados e devolvidos (histórico)
     returned_equipamentos = Agendamento.query.filter_by(user_id=user.id, devolucao=True).all()
     
@@ -108,6 +108,10 @@ def usuarios(email):
 @app.route("/secretarios/<email>")
 @login_required
 def secretarios(email):
+    if current_user.role != "secretario":
+        flash("Apenas secretários têm permissão para acessar esta página.", "error_permissao")
+        return redirect(url_for('login'))
+    
     user = User.query.filter_by(email=email).first_or_404()
 
     # Equipamentos disponíveis (não alugados)
@@ -222,6 +226,8 @@ def add_equipamento():
         new_equipamento = Equipamento( tipo=tipo , description=description)
         db.session.add(new_equipamento)
         db.session.commit()
+        
+        flash('Equipamento adicionado com sucesso!', 'success')
 
         return redirect(url_for('secretarios', email=current_user.email))  # Redireciona para a página inicial após o login
 
@@ -266,7 +272,8 @@ def add_agendamento():
         else:
             # Adicionar novo agendamento ao banco de dados
             new_agendamento = Agendamento(
-                data=data_hora_inicio.date().isoformat(),
+            
+                data = datetime.strptime(data, '%Y-%m-%d').strftime('%d/%m/%Y'),
                 horario_inicio=data_hora_inicio.time().isoformat(),
                 horario_fim=data_hora_fim.time().isoformat(),
                 equipamento_id= equipamento_disponivel.id,
@@ -314,7 +321,7 @@ def cancelar_reserva(agendamento_id):
     db.session.delete(agendamento)
     db.session.commit()
     
-    return redirect(url_for('usuarios', nome_usuario=current_user.email))
+    return redirect(url_for('usuarios', email=current_user.email))
 
 @app.route("/cadastro_secretario", methods=["GET", "POST"])
 @login_required
@@ -357,7 +364,7 @@ def editar_equipamento(equipamento_id):
     if request.method == 'POST':
         # Atualiza os dados do equipamento com os dados do formulário
         equipamento.tipo = request.form['tipo']
-        equipamento.descricao = request.form['descricao']
+        equipamento.description = request.form['descricao']
 
         # Commit para salvar as alterações no banco de dados
         db.session.commit()
