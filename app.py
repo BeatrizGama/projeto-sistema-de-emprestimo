@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, flash
 from flask_login import LoginManager, login_user, logout_user, login_required, UserMixin , current_user
 from flask_sqlalchemy import SQLAlchemy
+from flask_migrate import Migrate
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
 
@@ -20,12 +21,16 @@ login_manager.init_app(app)
 db = SQLAlchemy()
 db.init_app(app)
 
+migrate = Migrate(app, db)
+
 # Definicao da tabela de usuários na base de dados 
 class User(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True) # primary keys are required by SQLAlchemy
+    id = db.Column(db.Integer, primary_key=True) # primary keys are required by SQLAlchemy7
+    nome = db.Column(db.String(25))
     email = db.Column(db.String(100), unique=True)
     password = db.Column(db.String(100))
     department = db.Column(db.String(1000))
+    role = db.Column(db.String(50), default="usuario")  # Novo campo para o tipo de usuário
 
 
 @login_manager.user_loader
@@ -43,30 +48,34 @@ def login():
         # Lógica de autenticação aqui
         email = request.form.get('email')
         password = request.form.get('password')
-
         # procura este usuario na base de dados
         # se existir, o objeto "user" será uma estrutura de dados contendo os dados do usuario que vieram da base de dados
         user = User.query.filter_by(email=email).first()
-
+        print(user)
         # verifica se usuario existe
         # pega a senha fornecida, calcula o hash e compara com o hash guardado no banco de dados
 
         # PRECISA INFORMAR ERRO !!!!!!!!!!!!!!
         if not user or not check_password_hash(user.password, password):
-            flash("Usuário ou senha incorretos!", "error")  # Mensagem de erro flash
+            flash("Email ou senha incorreta!", "error")  # Mensagem de erro flash
             return redirect(url_for('login')) # if user doesn't exist or password is wrong, reload the page
 
-        # se chegou aqui, o usuário é valido
         login_user(user)
-        return redirect(url_for('usuarios', nome_usuario=user.email))  # Redireciona para a página inicial após o login
 
+        if user.role == "secretario":
+           return redirect(url_for('secretarios', email=email))  # Redireciona para a página inicial após o login
+        else:
+            return redirect(url_for('usuarios', email=email))  # Redireciona para a página inicial após o login
+   
+        # se chegou aqui, o usuário é valido
+     
     return render_template("login.html") 
 
 
-@app.route("/usuarios/<nome_usuario>")
+@app.route("/usuarios/<email>")
 @login_required
-def usuarios(nome_usuario):
-    user = User.query.filter_by(email=nome_usuario).first_or_404()
+def usuarios(email):
+    user = User.query.filter_by(email=email).first_or_404()
 
     # Equipamentos disponíveis (não alugados)
     available_equipamentos = db.session.query(Equipamento.tipo).distinct().all()
@@ -85,22 +94,65 @@ def usuarios(nome_usuario):
         Agendamento.devolucao == False,
         Agendamento.data < today_date
     ).all()
-    
+    nome = user.nome
     # Equipamentos já utilizados e devolvidos (histórico)
     returned_equipamentos = Agendamento.query.filter_by(user_id=user.id, devolucao=True).all()
     
     return render_template("usuarios.html", 
-                           nome_usuario=nome_usuario, 
+                           nome_usuario= nome, 
                            available_equipamentos=available_equipamentos,
                            reserved_equipamentos=reserved_equipamentos,
                            pending_equipamentos=pending_equipamentos,
                            returned_equipamentos=returned_equipamentos)
+
+@app.route("/secretarios/<email>")
+@login_required
+def secretarios(email):
+    user = User.query.filter_by(email=email).first_or_404()
+
+    # Equipamentos disponíveis (não alugados)
+    equipamentos = Equipamento.query.all()
+    
+    # Equipamentos reservados pelo usuário atual (futuro)
+    today_date = datetime.today().date().isoformat()
+    reserved_equipamentos = Agendamento.query.filter(
+        Agendamento.user_id == user.id,
+        Agendamento.devolucao == False,
+        Agendamento.data >= today_date
+    ).all()
+    
+    # Equipamentos utilizados e não devolvidos (pendentes)
+    pending_equipamentos = Agendamento.query.filter(
+        Agendamento.user_id == user.id,
+        Agendamento.devolucao == False,
+        Agendamento.data < today_date
+    ).all()
+    nome = user.nome
+        
+    # Equipamentos reservados (futuro)
+    today_date = datetime.today().date().isoformat()
+    reserved_equipamentos = db.session.query(Agendamento, User, Equipamento).join(User).join(Equipamento).filter(
+        Agendamento.devolucao == False,
+        Agendamento.data >= today_date
+    ).all()
+    
+    # Equipamentos utilizados e não devolvidos (pendentes)
+    pending_equipamentos = db.session.query(Agendamento, User, Equipamento).join(User).join(Equipamento).filter(
+        Agendamento.devolucao == False,
+        Agendamento.data < today_date
+    ).all()
+
+    return render_template("secretarios.html", nome_usuario= nome, 
+                           reserved_equipamentos=reserved_equipamentos,
+                           pending_equipamentos=pending_equipamentos, equipamentos=equipamentos)
+
 
 
 @app.route("/cadastro", methods=["GET", "POST"])
 def cadastro():
     if request.method == "POST":
         username = request.form["username"]
+        email = request.form["email"]
         password = request.form["password"]
         department = request.form["department"]
 
@@ -110,7 +162,7 @@ def cadastro():
             return redirect(url_for('cadastro'))
 
         # create new user with the form data. Hash the password so plaintext version isn't saved.
-        new_user = User(email=username, password=generate_password_hash(password, method='pbkdf2'), department=department)
+        new_user = User(nome = username,email=email, password=generate_password_hash(password, method='pbkdf2'), department=department)
         #new_user = User(email=email, name=name, password=generate_password_hash(password, method='sha256'), admin=admin)
 
         # add the new user to the database
@@ -155,6 +207,10 @@ class Agendamento(db.Model):
 @app.route("/add_equipamento", methods=["GET", "POST"])
 #@login_required
 def add_equipamento():
+    if current_user.role != "secretario":
+        flash("Apenas secretários têm permissão para acessar esta página.", "error_permissao")
+        return redirect(url_for('login'))
+    
     if request.method == "POST":
         tipo = request.form["name"]
         #modelo = request.form["modelo"]
@@ -167,7 +223,7 @@ def add_equipamento():
         db.session.add(new_equipamento)
         db.session.commit()
 
-        return redirect(url_for('add_equipamento'))
+        return redirect(url_for('secretarios', email=current_user.email))  # Redireciona para a página inicial após o login
 
     return render_template("add_equipamento.html")
 
@@ -220,7 +276,7 @@ def add_agendamento():
             db.session.add(new_agendamento)
             db.session.commit()
 
-            return redirect(url_for('usuarios', nome_usuario=current_user.email))
+            return redirect(url_for('usuarios', email=current_user.email))
 
 
     # Obtém todos os equipamentos disponíveis para exibir no formulário
@@ -260,37 +316,69 @@ def cancelar_reserva(agendamento_id):
     
     return redirect(url_for('usuarios', nome_usuario=current_user.email))
 
-@app.route("/devolucao")
-def devolucao():
-        
-    # Equipamentos reservados (futuro)
-    today_date = datetime.today().date().isoformat()
-    reserved_equipamentos = db.session.query(Agendamento, User, Equipamento).join(User).join(Equipamento).filter(
-        Agendamento.devolucao == False,
-        Agendamento.data >= today_date
-    ).all()
-    
-    # Equipamentos utilizados e não devolvidos (pendentes)
-    pending_equipamentos = db.session.query(Agendamento, User, Equipamento).join(User).join(Equipamento).filter(
-        Agendamento.devolucao == False,
-        Agendamento.data < today_date
-    ).all()
-    # Equipamentos já utilizados e devolvidos (histórico)
-    returned_equipamentos = Agendamento.query.filter_by( devolucao=True).all()
+@app.route("/cadastro_secretario", methods=["GET", "POST"])
+@login_required
+def cadastro_secretario():
+    if not current_user.is_secretario:
+        return "Você não tem permissão para adicionar novos secretários.", 403
 
-    
+    if request.method == "POST":
+        username = request.form["username"]
+        email = request.form["email"]
+        password = request.form["password"]
+        department = request.form["department"]
 
-    return render_template("devolucao.html",
-                           reserved_equipamentos=reserved_equipamentos,
-                           pending_equipamentos=pending_equipamentos
-                           )
+        user = User.query.filter_by(email=username).first() # if this returns a user, then the email already exists in database
 
-@app.route("/devolucao/<int:agendamento_id>", methods=["POST"])
-def devolucao_post(agendamento_id):
-    agendamento = Agendamento.query.get_or_404(agendamento_id)
-    agendamento.devolucao = True  
+        if user: # if a user is found, we want to redirect back to signup page so user can try again  
+            return redirect(url_for('cadastro_secretario'))
+
+        # create new user with the form data. Hash the password so plaintext version isn't saved.
+        new_user = User(
+            nome=username,
+            email=email,
+            password=generate_password_hash(password, method='pbkdf2'),
+            department=department,
+            is_secretario=True  # Define como secretário
+        )
+
+        # add the new user to the database
+        db.session.add(new_user)
+        db.session.commit()
+
+        return redirect(url_for("login"))
+
+    return render_template("cadastro_secretario.html")
+@app.route('/editar_equipamento/<int:equipamento_id>', methods=['GET', 'POST'])
+@login_required
+def editar_equipamento(equipamento_id):
+    equipamento = Equipamento.query.get_or_404(equipamento_id)
+
+    if request.method == 'POST':
+        # Atualiza os dados do equipamento com os dados do formulário
+        equipamento.tipo = request.form['tipo']
+        equipamento.descricao = request.form['descricao']
+
+        # Commit para salvar as alterações no banco de dados
+        db.session.commit()
+
+        flash('Equipamento atualizado com sucesso!', 'success')
+        return redirect(url_for('secretarios', email=current_user.email))
+
+    return render_template('editar_equipamento.html', equipamento=equipamento)
+
+@app.route('/remover_equipamento/<int:equipamento_id>', methods=['POST'])
+@login_required
+def remover_equipamento(equipamento_id):
+    equipamento = Equipamento.query.get_or_404(equipamento_id)
+
+    db.session.delete(equipamento)
     db.session.commit()
-    return redirect(url_for('devolucao'))
+
+    flash('Equipamento removido com sucesso!', 'success')
+    return redirect(url_for('secretarios', email=current_user.email))
+
+
 
 if __name__ == "__main__":
 
