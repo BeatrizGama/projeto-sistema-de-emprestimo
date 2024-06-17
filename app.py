@@ -81,12 +81,17 @@ def usuarios(email):
     available_equipamentos = db.session.query(Equipamento.tipo).distinct().all()
     
     # Equipamentos reservados pelo usuário atual (futuro)
-    today_date = datetime.today().date().isoformat()
+    today_date = datetime.today().strftime('%d/%m/%Y')
+
+    print("Data today" + today_date)
+    print("Agendamento.data" + Agendamento.data )
     reserved_equipamentos = Agendamento.query.filter(
         Agendamento.user_id == user.id,
         Agendamento.devolucao == False,
         Agendamento.data >= today_date
     ).all()
+
+    print("equipamentos reservados: " , reserved_equipamentos)
     
     # Equipamentos utilizados e não devolvidos (pendentes)
     pending_equipamentos = Agendamento.query.filter(
@@ -118,7 +123,7 @@ def secretarios(email):
     equipamentos = Equipamento.query.all()
     
     # Equipamentos reservados pelo usuário atual (futuro)
-    today_date = datetime.today().date().isoformat()
+    today_date = datetime.today().strftime('%d/%m/%Y')
     reserved_equipamentos = Agendamento.query.filter(
         Agendamento.user_id == user.id,
         Agendamento.devolucao == False,
@@ -134,7 +139,7 @@ def secretarios(email):
     nome = user.nome
         
     # Equipamentos reservados (futuro)
-    today_date = datetime.today().date().isoformat()
+    today_date = datetime.today().strftime('%d/%m/%Y')
     reserved_equipamentos = db.session.query(Agendamento, User, Equipamento).join(User).join(Equipamento).filter(
         Agendamento.devolucao == False,
         Agendamento.data >= today_date
@@ -292,23 +297,6 @@ def add_agendamento():
     return render_template("add_agendamento.html", available_equipamentos=available_equipamentos)
 
 
-'''
-@app.route('/reserve_equipamento', methods=['POST'])
-@login_required
-def reserve_equipamento():
-    data = request.get_json()
-    equipamento_id = data.get('equipamento_id')
-    equipamento = Equipamento.query.get(equipamento_id)
-
-    if equipamento and equipamento.user_id is None:
-        equipamento.user_id = current_user.id
-        db.session.commit()
-        return jsonify({'success': True})
-
-    return jsonify({'success': False, 'message': 'Equipamento não encontrado ou já reservado'})
-
-'''
-
 @app.route("/cancelar_reserva/<int:agendamento_id>", methods=["POST"])
 @login_required
 def cancelar_reserva(agendamento_id):
@@ -385,7 +373,14 @@ def remover_equipamento(equipamento_id):
     flash('Equipamento removido com sucesso!', 'success')
     return redirect(url_for('secretarios', email=current_user.email))
 
+@app.route("/devolucao/<int:agendamento_id>", methods=["POST"])
+def devolucao(agendamento_id):
+    agendamento = Agendamento.query.get_or_404(agendamento_id)
+    agendamento.devolucao = True  
+    db.session.commit()
+    user_email = current_user.email  # Ou outra forma de obter o email do usuário atual
 
+    return redirect(url_for('secretarios' , email=user_email))
 
 if __name__ == "__main__":
 
