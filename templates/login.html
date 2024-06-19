@@ -24,6 +24,7 @@
         text-align: center;
       }
       .container h2 {
+        margin-block-start: 0em;
         margin-bottom: 20px;
         color: #01579b;
       }
@@ -77,10 +78,19 @@
         color: red;
         margin-bottom: 20px;
       }
+      .logo img {
+        width: 100px;
+      }
     </style>
   </head>
   <body>
     <div class="container">
+      <div class="logo">
+        <img
+          src="https://institucional.ufrrj.br/ccs/files/2019/06/rural_logo3-258x300.jpg"
+        />
+      </div>
+
       <h2>Bem-Vindo!</h2>
       <h5>Não tem conta? <a href="/cadastro">Cadastre-se</a></h5>
 
@@ -101,23 +111,12 @@
         <label for="password"><b>Senha</b></label>
         <input type="password" id="password" name="password" required />
 
-        <h6><a href="/senha">Esqueceu a senha?</a></h6>
+        <h5><a href="/senha">Esqueceu a senha?</a></h5>
 
         <button type="submit">Login</button>
       </form>
       <script>
         // JavaScript para exibir mensagens flash como alertas
-        (function() {
-          {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-              {% for category, message in messages %}
-                {% if category in ['error', 'error_permissao'] %}
-                  alert("{{ message }}");
-                {% endif %}
-              {% endfor %}
-            {% endif %}
-          {% endwith %}
-        })();
       </script>
     </div>
   </body>

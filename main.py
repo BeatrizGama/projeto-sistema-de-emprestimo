@@ -120,7 +120,7 @@ def secretarios(email):
     user = User.query.filter_by(email=email).first_or_404()
 
     # Equipamentos disponíveis (não alugados)
-    equipamentos = Equipamento.query.all()
+    equipamentos = Equipamento.query.filter(Equipamento.existe == True).all()
     
     # Equipamentos reservados pelo usuário atual (futuro)
     today_date = datetime.today().strftime('%d/%m/%Y')
@@ -201,6 +201,8 @@ class Equipamento(db.Model):
     modelo =  db.Column(db.String(100)) # e20 2.0
     marca =  db.Column(db.String(100)) # epson / dell 
     description = db.Column(db.String(1000))
+    existe = db.Column(db.Boolean, nullable=False , default=True)
+
 
 class Agendamento(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -214,7 +216,7 @@ class Agendamento(db.Model):
     user = db.relationship('User', backref=db.backref('agendamentos', lazy=True))
 
 @app.route("/add_equipamento", methods=["GET", "POST"])
-#@login_required
+@login_required
 def add_equipamento():
     if current_user.role != "secretario":
         flash("Apenas secretários têm permissão para acessar esta página.", "error_permissao")
@@ -222,13 +224,13 @@ def add_equipamento():
     
     if request.method == "POST":
         tipo = request.form["name"]
-        #modelo = request.form["modelo"]
-        #marca = request.form["marca"]
+        modelo = request.form["modelo"]
+        marca = request.form["marca"]
         description = request.form["description"]
 
         # Adicionar novo equipamento ao banco de dado
         
-        new_equipamento = Equipamento( tipo=tipo , description=description)
+        new_equipamento = Equipamento( tipo=tipo , description=description , marca=marca, modelo=modelo)
         db.session.add(new_equipamento)
         db.session.commit()
         
@@ -351,8 +353,10 @@ def editar_equipamento(equipamento_id):
 
     if request.method == 'POST':
         # Atualiza os dados do equipamento com os dados do formulário
-        equipamento.tipo = request.form['tipo']
-        equipamento.description = request.form['descricao']
+        equipamento.tipo = request.form['name']
+        equipamento.description = request.form['description']
+        equipamento.modelo = request.form["modelo"]
+        equipamento.marca = request.form["marca"]
 
         # Commit para salvar as alterações no banco de dados
         db.session.commit()
@@ -366,11 +370,25 @@ def editar_equipamento(equipamento_id):
 @login_required
 def remover_equipamento(equipamento_id):
     equipamento = Equipamento.query.get_or_404(equipamento_id)
+    equipamento.existe = False
 
-    db.session.delete(equipamento)
+    today_date = datetime.today().strftime('%d/%m/%Y')
+
+    agendamentosFuturos = Agendamento.query.filter(
+        Agendamento.equipamento_id == equipamento_id,
+        Agendamento.data > today_date
+    ).all()
+
+    if agendamentosFuturos:
+        flash('Atenção: Existem agendamentos futuros para este equipamento. Todos os agendamentos futuros serão excluídos.', 'warning')
+    else:
+        print("Nenhum agendamento futuro encontrado.")
+    for agendamento in agendamentosFuturos:
+        db.session.delete(agendamento)
+
     db.session.commit()
 
-    flash('Equipamento removido com sucesso!', 'success')
+    flash('Equipamento removido com sucesso!', 'sucess')
     return redirect(url_for('secretarios', email=current_user.email))
 
 @app.route("/devolucao/<int:agendamento_id>", methods=["POST"])

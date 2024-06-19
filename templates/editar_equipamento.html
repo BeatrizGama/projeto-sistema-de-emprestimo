@@ -60,7 +60,8 @@
       }
       input,
       textarea,
-      button {
+      button,
+      select {
         width: 100%;
         padding: 12px;
         margin-bottom: 20px;
@@ -70,9 +71,22 @@
         box-sizing: border-box;
         transition: border-color 0.3s ease, box-shadow 0.3s ease;
       }
+      textarea {
+        width: 100%;
+        padding: 12px;
+        margin-bottom: 20px;
+        border: 1px solid #ccc;
+        border-radius: 6px;
+        font-size: 16px;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif; /* Adicione a propriedade font-family */
+        box-sizing: border-box;
+        transition: border-color 0.3s ease, box-shadow 0.3s ease;
+      }
+
       input:focus,
       textarea:focus,
-      button:focus {
+      button:focus,
+      select:focus {
         outline: none;
         border-color: #007bff;
         box-shadow: 0 0 10px rgba(0, 123, 255, 0.5);
@@ -94,23 +108,35 @@
     <div class="container">
       <h1><i class="fas fa-tools icon"></i>Editar Equipamento</h1>
       <form method="POST">
-        <label for="tipo"><i class="fas fa-tag icon"></i>Tipo:</label>
+        <label for="name"><i class="fas fa-tag icon"></i>Nome:</label>
         <input
           type="text"
-          id="tipo"
-          name="tipo"
+          id="name"
+          name="name"
           value="{{ equipamento.tipo }}"
           required
         />
-        <label for="descricao"
+        <label for="description"
           ><i class="fas fa-info-circle icon"></i>Descrição:</label
         >
-        <textarea id="descricao" name="descricao" required>
-{{ equipamento.descricao }}</textarea
+        <textarea id="description" name="description">
+{{ equipamento.description }} </textarea
         >
-        <button type="submit">
-          <i class="fas fa-check icon"></i>Salvar Alterações
-        </button>
+        <label for="modelo"><i class="fas fa-barcode icon"></i>Modelo:</label>
+        <input
+          type="text"
+          id="modelo"
+          name="modelo"
+          value="{{ equipamento.modelo }}"
+        />
+        <label for="marca"><i class="fas fa-tag icon"></i>Marca:</label>
+        <input
+          type="text"
+          id="marca"
+          name="marca"
+          value="{{ equipamento.marca }}"
+        />
+        <button type="submit"><i class="fas fa-check icon"></i>Salvar</button>
       </form>
     </div>
   </body>
