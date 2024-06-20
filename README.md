@@ -1,20 +1,26 @@
-
-**Data de Início:** 03/24
-**Data de Encerramento:** 06/24
-Aqui está um exemplo de README.md no estilo típico de projetos de código, destacando as bibliotecas necessárias e instruções de instalação:
-
 # Sistema de Gestão de Equipamentos Acadêmicos
 
+
+
 Este repositório contém o código para um Sistema de Gestão de Equipamentos Acadêmicos, desenvolvido para facilitar o gerenciamento e a utilização de equipamentos por professores da Universidade Federal Rural do Rio de Janeiro (UFRRJ).
+<div align="center">
+ <img src="imagens/tela_usuario.png" alt="Tela do Usuário" width="600" />  
+</div >
 
-(images/tela_usuario.png)
+## Links úteis
 
+[Link Slides de Apresentação ](https://docs.google.com/presentation/d/1fk3FtyziLQ8HwEc3S26_IQIGIyQTguarllFB54ai1T4/edit?usp=drive_link)
+
+[Link Relatório de Projeto ](https://docs.google.com/document/d/15BoMjhosllfrjL4XQJzzj7SmcGjs_-mi/edit?usp=sharing&ouid=115301090771637238718&rtpof=true&sd=true)
 ## Autores
 
 - Beatriz Fernandes Gama de Lima
 - Julia da Silva Borges
 - Bruna de Andrade da Silva
 - Bruna Luísa Costa Reis dos Santos
+
+
+**Data de Início:** 03/24 - **Data de Encerramento:** 06/24
 
 ## Descrição
 
