@@ -83,15 +83,12 @@ def usuarios(email):
     # Equipamentos reservados pelo usuário atual (futuro)
     today_date = datetime.today().strftime('%d/%m/%Y')
 
-    print("Data today" + today_date)
-    print("Agendamento.data" + Agendamento.data )
     reserved_equipamentos = Agendamento.query.filter(
         Agendamento.user_id == user.id,
         Agendamento.devolucao == False,
         Agendamento.data >= today_date
     ).all()
 
-    print("equipamentos reservados: " , reserved_equipamentos)
     
     # Equipamentos utilizados e não devolvidos (pendentes)
     pending_equipamentos = Agendamento.query.filter(
@@ -240,51 +237,58 @@ def add_equipamento():
 
     return render_template("add_equipamento.html")
 
-
 @app.route("/add_agendamento", methods=["GET", "POST"])
 @login_required
 def add_agendamento():
     if request.method == "POST":
         data = request.form["data"]
-        horario_inicio = request.form["horario_inicio"]
-        horario_fim = request.form["horario_fim"]
+        data_hora_inicio = request.form["horario_inicio"]
+        data_hora_fim  = request.form["horario_fim"]
         equipamento_tipo = request.form["equipamento_tipo"]
-        user_id = current_user.id  # ID do usuário atual logado 
+        user_id = current_user.id  # ID do usuário atual logado
 
-        data_hora_inicio = datetime.strptime(f"{data}T{horario_inicio}", "%Y-%m-%dT%H:%M")
-        data_hora_fim = datetime.strptime(f"{data}T{horario_fim}", "%Y-%m-%dT%H:%M")
-             
+        
+
+        data = datetime.strptime(data, '%d/%m/%Y')
+        
+        print(data)
+        
+        # Criação dos objetos datetime usando a data formatada corretamente
+        data_hora_inicio = datetime.strptime(f"{data} {data_hora_inicio}", '%Y-%m-%d %H:%M')
+        data_hora_fim = datetime.strptime(f"{data} {data_hora_fim}", '%Y-%m-%d %H:%M')
+
+        print(data_hora_inicio)
+
+
         # Verificar se a data de fim é depois da data de início
         if data_hora_fim <= data_hora_inicio:
             flash("Erro: O horário de término deve ser posterior ao horário de início.", "error")
             return redirect(url_for('add_agendamento'))
         
-        # Verificar disponibilidade de qualquer equipamento do mesmo tipo
         equipamento_disponivel = None
         equipamentos_do_tipo = Equipamento.query.filter_by(tipo=equipamento_tipo).all()
         for equipamento in equipamentos_do_tipo:
             conflito_agendamento = Agendamento.query.filter(
                 Agendamento.equipamento_id == equipamento.id,
                 Agendamento.data == data,
-                Agendamento.horario_inicio < horario_fim,
-                Agendamento.horario_fim > horario_inicio
+                Agendamento.horario_inicio < data_hora_fim,
+                Agendamento.horario_fim > data_hora_inicio
             ).first()
+            
             if not conflito_agendamento:
                 equipamento_disponivel = equipamento
                 break
-
 
         if conflito_agendamento:
             flash("Conflito de agendamento: já existe um agendamento para este horário.", "error")
         else:
             # Adicionar novo agendamento ao banco de dados
             new_agendamento = Agendamento(
-            
-                data = datetime.strptime(data, '%Y-%m-%d').strftime('%d/%m/%Y'),
+                data=data,
                 horario_inicio=data_hora_inicio.time().isoformat(),
                 horario_fim=data_hora_fim.time().isoformat(),
-                equipamento_id= equipamento_disponivel.id,
-                devolucao = False,
+                equipamento_id=equipamento_disponivel.id,
+                devolucao=False,
                 user_id=user_id
             )
             db.session.add(new_agendamento)
@@ -292,12 +296,10 @@ def add_agendamento():
 
             return redirect(url_for('usuarios', email=current_user.email))
 
-
     # Obtém todos os equipamentos disponíveis para exibir no formulário
     available_equipamentos = db.session.query(Equipamento.tipo).distinct().all()
 
     return render_template("add_agendamento.html", available_equipamentos=available_equipamentos)
-
 
 @app.route("/cancelar_reserva/<int:agendamento_id>", methods=["POST"])
 @login_required
