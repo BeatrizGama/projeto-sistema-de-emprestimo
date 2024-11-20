@@ -98,7 +98,7 @@
       </button>
       <button class="tablink" onclick="openTab('Historico')">Histórico</button>
       <button class="tablink" onclick="openTab('Pendentes')">Pendentes</button>
-      <button class="tablink" onclick="location.href='/logout'">Logout</button>
+      <button class="tablink" onclick="location.href='../logout'">Logout</button>
     </div>
     <div id="Disponiveis" class="tabcontent">
       <h3>LISTA DE EQUIPAMENTOS</h3>
@@ -114,7 +114,7 @@
           <td>{{ equipment.tipo }}</td>
           <td>{{ equipment.description }}</td>
           <td>
-            <button onclick="location.href='/add_agendamento'">Reservar</button>
+            <button onclick="location.href='../add_agendamento'">Reservar</button>
           </td>
         </tr>
         {% endfor %}

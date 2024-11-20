@@ -4,6 +4,16 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
+from werkzeug.middleware.proxy_fix import ProxyFix
+from oauthlib.oauth2 import WebApplicationClient
+import os, json, requests
+
+# Configuration
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", None) # Need to set this environment var to work
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", None) # Need to set this environment var to work
+GOOGLE_DISCOVERY_URL = ("https://accounts.google.com/.well-known/openid-configuration")
+# OAuth 2 client setup
+client = WebApplicationClient(GOOGLE_CLIENT_ID)
 
 #import json
 
@@ -12,6 +22,9 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = '9OLWxND4o83j4K4iuopO'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///projeto.db.sqlite'
 app.app_context().push()
+app.wsgi_app = ProxyFix(
+    app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
+)
 
 # Login manager
 login_manager = LoginManager()
@@ -31,6 +44,101 @@ class User(UserMixin, db.Model):
     password = db.Column(db.String(100))
     department = db.Column(db.String(1000))
     role = db.Column(db.String(50), default="usuario")  # Novo campo para o tipo de usuário
+
+##### LOGIN COM O GOOGLE
+# helper to retrieve google auth uri
+def get_google_provider_cfg():
+    return requests.get(GOOGLE_DISCOVERY_URL).json()
+
+@app.route("/glogin")
+def glogin():
+    # Find out what URL to hit for Google login
+    google_provider_cfg = get_google_provider_cfg()
+    authorization_endpoint = google_provider_cfg["authorization_endpoint"]
+
+    # Use library to construct the request for Google login and provide
+    # scopes that let you retrieve user's profile from Google
+    request_uri = client.prepare_request_uri(
+        authorization_endpoint,
+        redirect_uri='https://www.dcc.ufrrj.br' + url_for('callback'),
+        scope=["openid", "email", "profile"],
+    )
+    return redirect(request_uri)
+
+@app.route("/gcallback")
+def callback():
+    # Get authorization code Google sent back to you
+    code = request.args.get("code")
+
+    # Find out what URL to hit to get tokens that allow you to ask for
+    # things on behalf of a user
+    google_provider_cfg = get_google_provider_cfg()
+    token_endpoint = google_provider_cfg["token_endpoint"]
+
+    # Prepare and send a request to get tokens! Yay tokens!
+    print(request.url, request.base_url)
+    token_url, headers, body = client.prepare_token_request(
+        token_endpoint,
+        authorization_response=request.url.replace('http://', 'https://', 1),
+        redirect_url='https://www.dcc.ufrrj.br' + url_for('callback'),
+        code=code
+    )
+    token_response = requests.post(
+        token_url,
+        headers=headers,
+        data=body,
+        auth=(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET),
+    )
+
+    # Parse the tokens!
+    client.parse_request_body_response(json.dumps(token_response.json()))
+
+    # Now that you have tokens (yay) let's find and hit the URL
+    # from Google that gives you the user's profile information,
+    # including their Google profile image and email
+    userinfo_endpoint = google_provider_cfg["userinfo_endpoint"]
+    uri, headers, body = client.add_token(userinfo_endpoint)
+    userinfo_response = requests.get(uri, headers=headers, data=body)
+
+    # You want to make sure their email is verified.
+    # The user authenticated with Google, authorized your
+    # app, and now you've verified their email through Google!
+    if userinfo_response.json().get("email_verified"):
+        unique_id = userinfo_response.json()["sub"]
+        users_email = userinfo_response.json()["email"]
+        picture = userinfo_response.json()["picture"]
+        users_name = userinfo_response.json()["given_name"]
+    else:
+        return "User email not available or not verified by Google.", 400
+
+    print(unique_id, users_name, users_email)
+    print(userinfo_response.json())
+    # Create a user in your db with the information provided
+    # by Google
+    #user = User(
+    #    id_=unique_id, name=users_name, email=users_email, profile_pic=picture
+    #)
+
+    # tenta pegar usuário, caso já exista
+    user = User.query.filter_by(email=users_email).first()
+
+    # Doesn't exist? Add it to the database.
+    #if not User.get(unique_id):
+    if not user:
+        #User.create(unique_id, users_name, users_email, picture)
+        user = User(nome=users_name,email=users_email, department="DCC")
+        db.session.add(user)
+        db.session.commit()
+
+    # Begin user session by logging the user in
+    login_user(user)
+
+    if user.role == "secretario":
+       return redirect(url_for('secretarios', email=users_email))  # Redireciona para a página inicial após o login
+    else:
+        return redirect(url_for('usuarios', email=users_email))  # Redireciona para a página inicial após o login
+
+##### END LOGIN COM O GOOGLE
 
 
 @login_manager.user_loader
@@ -75,6 +183,11 @@ def login():
 @app.route("/usuarios/<email>")
 @login_required
 def usuarios(email):
+
+    # Teste necessario se tiver a tela de completar o cadastro
+    #if (current_user.department == "")
+    #    return redirect(url_for('completa_cadastro', email=email))
+
     user = User.query.filter_by(email=email).first_or_404()
     nome = user.nome
     # Equipamentos disponíveis (não alugados)
@@ -249,7 +362,7 @@ def add_agendamento():
 
         
 
-        data = datetime.strptime(data, '%d/%m/%Y')
+        #data = datetime.strptime(data, '%Y-%m-%d')
         
         print(data)
         
@@ -408,3 +521,4 @@ if __name__ == "__main__":
     db.create_all()
     # Inicia a aplicacao
     app.run(debug=True)
+
